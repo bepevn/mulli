@@ -55,7 +55,7 @@ canvas{display:block}
  • 내 차례에 <b>내 알을 누르고 뒤로 당겼다 놓으면</b> 반대 방향으로 튕겨나가요.<br>
  • 많이 당길수록 세게 나가요 (새총 방식).<br>• 판 밖으로 나간 알은 사라져요. 내 알도 나갈 수 있으니 조심!<br>
  • 상대 알을 모두 없애면 승리. 흑이 먼저 둡니다.<br>
- • <b>⚡ 능력 알까기</b>: 5판 3선승. 매 판 시작 전 능력 3개 중 1개를 골라 쌓아가요. 라운드마다 실버·골드·프리즘 등급이 달라져요.<br>
+ • <b>⚡ 능력 알까기</b>: 5판 3선승. 매 판 시작 전 능력 3개 중 1개를 골라 쌓아가요. 무한 모드에서는 같은 능력을 여러 번 골라 효과를 겹칠 수 있어요(AI전은 목숨 3개, 라운드 승리마다 포인트). 라운드마다 실버·골드·프리즘 등급이 달라져요.<br>
  • AI에게 이기면 알포인트 획득 (쉬움 10 · 보통 20 · 어려움 35 + 남은 알 1개당 2).<br>• 포인트로 흑돌·백돌 스킨을 각각 살 수 있어요.</div>
  <button class="btn" onclick="show('menu')">돌아가기</button></div>
 
@@ -65,7 +65,8 @@ canvas{display:block}
  <button class="btn" onclick="startGame('ai')">대전 시작!</button><button class="btn gray" onclick="show('menu')">뒤로</button></div>
 
 <div id="abSetup" class="screen"><h1 style="font-size:38px">⚡ 능력 알까기</h1>
- <div class="sub" style="margin-bottom:14px;text-align:center">5판 3선승 · 매 판마다 능력을 하나씩 뽑아 쌓아요</div>
+ <div class="sub" style="margin-bottom:14px;text-align:center">매 판마다 능력을 하나씩 뽑아 쌓아요</div>
+ <div>모드</div><div class="opt" id="optAbLen"><button data-v="bo5" class="sel">🏆 5판 3선승</button><button data-v="inf">♾️ 무한 모드</button></div>
  <div>상대</div><div class="opt" id="optAbMode"><button data-v="ai" class="sel">🤖 AI</button><button data-v="pvp">👥 오프라인</button></div>
  <div>AI 난이도</div><div class="opt" id="optAbDiff"><button data-v="easy">쉬움</button><button data-v="normal" class="sel">보통</button><button data-v="hard">어려움</button></div>
  <div>내 돌 (AI 대전)</div><div class="opt" id="optAbColor"><button data-v="black" class="sel">⚫ 흑</button><button data-v="white">⚪ 백</button></div>
@@ -87,7 +88,7 @@ canvas{display:block}
   <button class="btn sm" style="width:150px" onclick="pull(10)">10회<br>🪙 1000</button></div>
  <div id="pity" style="color:#d8b98a;font-size:14px;margin-top:10px"></div>
  <div id="pullRes" style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;width:600px;margin:16px 0;min-height:260px"></div>
- <div style="display:flex;gap:8px"><button class="btn gray sm" onclick="openSkins()">🎨 스킨 보기</button><button class="btn gray sm" onclick="show('menu')">🏠 메뉴로</button></div>
+ <div style="display:flex;gap:8px"><button class="btn gray sm" onclick="openSkins()">🎨 스킨 보기</button><button class="btn gray sm" onclick="confettiOn=false;show('menu')">🏠 메뉴로</button></div>
  <div class="toast" id="toast"></div></div>
 
 <div id="skins" class="screen" style="justify-content:flex-start;padding-top:30px"><div class="pts">🪙 <span class="ptv"></span> 알포인트</div>
@@ -102,6 +103,7 @@ canvas{display:block}
  <div id="turn"></div>
  <div class="cnt"><span id="lw" style="font-size:13px;color:#aaa"></span> <span id="nw">5</span><canvas id="iw" width="30" height="30"></canvas></div></div>
  <canvas id="cv" width="640" height="640"></canvas>
+ <button id="quitInf" onclick="quitInf()" style="display:none;position:absolute;right:14px;top:96px;z-index:5;background:#000a;color:#fff;border:1px solid #888;border-radius:8px;padding:5px 10px;cursor:pointer">🏳️ 그만하기</button>
  <div id="roundMsg" style="display:none;position:absolute;left:0;right:0;top:300px;text-align:center;pointer-events:none;background:#000b;padding:24px 0"></div>
  <div id="flash" style="display:none;position:absolute;left:0;right:0;top:120px;text-align:center;font-size:24px;font-weight:bold;color:#ffd36b;text-shadow:0 0 10px #000,0 0 4px #000;pointer-events:none"></div>
  <button class="btn sm gray" style="position:absolute;top:28px;left:50%;transform:translateX(-50%) translateY(28px)" onclick="if(confirm('메뉴로 나갈까요? (진행 중인 게임은 사라져요)'))show('menu')">메뉴</button></div>
@@ -131,7 +133,7 @@ const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id));refreshPts();if(id!=='game')G.running=false;if(id!=='result')confettiOn=false}
 function opt(id){const box=$(id);box.querySelectorAll('button').forEach(b=>b.onclick=()=>{box.querySelectorAll('button').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');if(id==='optShop')renderShop()})}
 const optVal=id=>$(id).querySelector('.sel').dataset.v;
-['optDiff','optColor','optShop','optAbMode','optAbDiff','optAbColor'].forEach(opt);
+['optDiff','optColor','optShop','optAbMode','optAbDiff','optAbColor','optAbLen'].forEach(opt);
 
 // ===== 알 그리기 =====
 function drawStone(c,x,y,r,key,alpha=1){const s=SKINS[key]||SKINS[key&&key[0]==='w'?'w0':'b0'];c.save();c.globalAlpha=alpha;
@@ -250,24 +252,29 @@ let G={running:false},aim=null,mouse={x:0,y:0};
 function startGame(mode,ab=null){
  G={mode,ab,running:true,turn:ab?ab.first:'black',stones:[],moving:false,shooter:null,over:false,msg:'',msgT:0,
    diff:ab?ab.diff:optVal('optDiff'),human:mode==='ai'?(ab?ab.human:optVal('optColor')):null,fx:[],
-   revive:{black:has('black','revive',ab)?1:0,white:has('white','revive',ab)?1:0}};
+   revive:{black:cnt('black','revive',ab),white:cnt('white','revive',ab)}};
  $('roundMsg').style.display='none';$('flash').style.display='none';
  G.skin={black:SAVE.equip.black,white:SAVE.equip.white};
  if(mode==='ai'){const aiCol=G.human==='black'?'white':'black';G.skin[aiCol]=aiCol==='black'?'b0':'w0'}
  for(let i=0;i<5;i++){const x=B.x+100+i*100;G.stones.push(mk('white',x,B.y+130+(i%2)*40));G.stones.push(mk('black',x,B.y+B.h-130-(i%2)*40))}
- for(const col of['black','white']){const back=col==='white'?B.y+62:B.y+B.h-62;
-  if(has(col,'militia')){G.stones=G.stones.filter(s=>s.col!==col);for(let i=0;i<20;i++){const cx=B.x+120+(i%5)*90,cy=col==='white'?B.y+60+(i/5|0)*42:B.y+B.h-60-(i/5|0)*42;G.stones.push(mk(col,cx,cy,true))}}
-  const n=cnt(col,'reinforce')+3*cnt(col,'legion');for(let i=0;i<n;i++)G.stones.push(mk(col,B.x+B.w/2+(i-(n-1)/2)*(n>5?75:90),has(col,'militia')?(col==='white'?B.y+235:B.y+B.h-235):back,has(col,'militia')));
+ for(const col of['black','white']){const back=col==='white'?B.y+62:B.y+B.h-62;const mil=has(col,'militia');
+  if(mil){G.stones=G.stones.filter(s=>s.col!==col);const N=Math.min(30,10*cnt(col,'militia'));for(let i=0;i<N;i++){const cx=B.x+120+(i%5)*90,cy=col==='white'?B.y+60+(i/5|0)*42:B.y+B.h-60-(i/5|0)*42;G.stones.push(mk(col,cx,cy,true))}}
+  const n=Math.min(12,cnt(col,'reinforce')+3*cnt(col,'legion'));for(let i=0;i<n;i++)G.stones.push(mk(col,B.x+B.w/2+(i-(n-1)/2)*(n>5?(n>7?55:75):90),mil?(col==='white'?B.y+60+Math.ceil(Math.min(30,10*cnt(col,'militia'))/5)*42:B.y+B.h-60-Math.ceil(Math.min(30,10*cnt(col,'militia'))/5)*42):back,mil));
   const my=()=>G.stones.filter(s=>s.col===col);
-  if(has(col,'king')){const s=my().sort((a,b)=>Math.abs(a.x-320)-Math.abs(b.x-320))[0];s.r*=2;s.m*=4;s.king=1}
-  if(has(col,'aegis'))my().forEach(s=>s.shield=1);else if(has(col,'shield'))my().sort(()=>Math.random()-.5).slice(0,3).forEach(s=>s.shield=1);
-  if(has(col,'bomb')){const c=my().filter(s=>!s.king).sort(()=>Math.random()-.5);if(c[0])c[0].bomb=1}}
- G.shooter=null;
+  my().sort((a,b)=>Math.abs(a.x-320)-Math.abs(b.x-320)).slice(0,cnt(col,'king')).forEach(s=>{s.r=Math.min(s.r*2,R*2.6);s.m*=4;s.king=1});
+  if(has(col,'aegis'))my().forEach(s=>s.shield=cnt(col,'aegis'));
+  if(has(col,'shield'))my().sort(()=>Math.random()-.5).slice(0,3*cnt(col,'shield')).forEach(s=>s.shield++);
+  my().filter(s=>!s.king).sort(()=>Math.random()-.5).slice(0,cnt(col,'bomb')).forEach(s=>s.bomb=1)}
+ for(const col of['black','white']){const op=other(col),ops=()=>G.stones.filter(s=>s.col===op);
+  ops().sort(()=>Math.random()-.5).slice(0,2*cnt(col,'shrink')).forEach(s=>{s.r=Math.max(R*.5,s.r*.7);s.m=Math.max(.15,s.m*.6)});
+  const kill=Math.min(2*cnt(col,'meteor'),Math.max(0,ops().length-2));if(kill){const v=ops().sort(()=>Math.random()-.5).slice(0,kill);G.stones=G.stones.filter(s=>!v.includes(s));G.meteorMsg=(G.meteorMsg||'')+`☄️ ${pname(col)}의 메테오! 상대 알 ${kill}개 파괴 `}}
+ G.vamp={black:0,white:0};G.shooter=null;
+ $('quitInf').style.display=G.ab&&G.ab.inf?'':'none';
  $('lb').textContent=(mode==='ai'?(G.human==='black'?'나':'AI'):'1P')+' '+icons('black');$('lw').textContent=icons('white')+' '+(mode==='ai'?(G.human==='white'?'나':'AI'):'2P');
  show('game');G.running=true;nextTurnUI();last=performance.now();requestAnimationFrame(loop)}
 const isAI=()=>G.mode==='ai'&&G.turn!==G.human;
 function nextTurnUI(){const n=G.turn==='black'?'⚫ 흑':'⚪ 백';
- $('turn').innerHTML=(G.mode==='ai'?(isAI()?`${n} · AI 생각 중...`:`${n} · 내 차례`):`${n} 차례`)+(G.ab?`<div style="font-size:14px;color:#cdb8ff">⚡ ${G.ab.round}라운드 · ⚫ ${G.ab.score.black} : ${G.ab.score.white} ⚪</div>`:'');
+ $('turn').innerHTML=(G.mode==='ai'?(isAI()?`${n} · AI 생각 중...`:`${n} · 내 차례`):`${n} 차례`)+(G.ab?`<div style="font-size:14px;color:#cdb8ff">⚡ ${G.ab.round}라운드 · ⚫ ${G.ab.score.black} : ${G.ab.score.white} ⚪${infTag()}</div>`:'');
  if(isAI())setTimeout(aiShoot,900)}
 const alive=c=>G.stones.filter(s=>s.alive&&s.col===c);
 function updateCount(){$('nb').textContent=alive('black').length;$('nw').textContent=alive('white').length}
@@ -280,16 +287,16 @@ function up(){if(!aim)return;let dx=aim.x-mouse.x,dy=aim.y-mouse.y,d=Math.hypot(
  if(d>8){const k=Math.min(d,MAXPULL)/d;shoot(aim,dx*k*POWER,dy*k*POWER)}aim=null}
 cv.addEventListener('mousedown',down);addEventListener('mousemove',move);addEventListener('mouseup',up);
 cv.addEventListener('touchstart',down,{passive:false});addEventListener('touchmove',move,{passive:false});addEventListener('touchend',up);
-function shoot(s,vx,vy){G.shotStone=s;const pm=powMul(s.col);s.vx=vx*pm;s.vy=vy*pm;s.shot=true;G.moving=true;G.shooter=G.turn;G.enemyBefore=alive(other(G.turn)).length}
+function shoot(s,vx,vy){G.shotStone=s;s.bmr=cnt(s.col,'boomerang');const pm=powMul(s.col);s.vx=vx*pm;s.vy=vy*pm;s.shot=true;G.moving=true;G.shooter=G.turn;G.enemyBefore=alive(other(G.turn)).length}
 
 // ----- AI: 후보 샷을 실제 물리엔진으로 미리 굴려보고 결과가 가장 좋은 샷 선택 -----
 const AICFG={easy:{noise:[.09,.18],pick:.35,offs:[0],pows:[.6,1]},
              normal:{noise:[.035,.07],pick:.08,offs:[-.35,0,.35],pows:[.45,.7,1]},
              hard:{noise:[.01,.025],pick:0,offs:[-.5,-.25,0,.25,.5],pows:[.35,.55,.75,1]}};
 function simulate(shooterIdx,vx,vy,me){
- const st=cloneStones();const pm=powMul(me);Object.assign(st[shooterIdx],{vx:vx*pm,vy:vy*pm,shot:true});
+ const st=cloneStones();const pm=powMul(me);Object.assign(st[shooterIdx],{vx:vx*pm,vy:vy*pm,shot:true,bmr:cnt(me,'boomerang')});
  let act=st;for(let t=0;t<900;t++){physStep(act,1/200);for(const s of act)if(s.boom){explode(act,s);s.out=true}let moving=false;
-  for(const s of act){if(s.out)continue;if(outB(s)){if(s.shield>0)bounceIn(s);else s.out=true}else if(s.vx||s.vy)moving=true}act=act.filter(s=>!s.out);if(!moving)break}
+  for(const s of act){if(s.out)continue;if(outB(s)){if(s.bmr>0){s.bmr--;reflect(s)}else if(s.shield>0)bounceIn(s);else s.out=true}else if(s.vx||s.vy)moving=true}act=act.filter(s=>!s.out);if(!moving)break}
  let score=0;const edge=s=>Math.min(s.x-B.x,B.x+B.w-s.x,s.y-B.y,B.y+B.h-s.y);
  for(const s of st){if(s.col===me){if(s.out)score-=130;else score+=Math.min(edge(s),150)*.15}
   else{if(s.out)score+=100;else score-=Math.min(edge(s),150)*.08}}
@@ -327,59 +334,79 @@ function explode(st,b){for(const o of st){if(o===b||o.out||o.fall)continue;const
   const k=BOOM_P*(1-d/BOOM_R)/(o.m||1);o.vx+=dx/d*k;o.vy+=dy/d*k}b.boom=0;b.bomb=0;b.vx=b.vy=0}
 function step(dt){const st=G.stones.filter(s=>s.alive&&s.fall===0);physStep(st,dt);
  for(const s of st)if(s.boom){explode(st,s);s.fall=0.001;G.fx.push({x:s.x,y:s.y,t:0,c:'#ff5a1f',txt:'💥',big:1});flash('💣 자폭!')}
- for(const s of st)if(outB(s)){if(s.shield>0){bounceIn(s);G.fx.push({x:s.x,y:s.y,t:0,c:'#6ec8ff',txt:'🔰'})}else{s.fall=0.001;growCheck(s)}}}
-function growCheck(s){const sh=G.shotStone;if(!sh||!sh.alive||sh.fall||s.col===G.shooter||!has(G.shooter,'grow'))return;
- if(sh.r<R*2.4){sh.r*=1.18;sh.m*=1.3;G.fx.push({x:sh.x,y:sh.y,t:0,c:'#7dff7d',txt:'🌱'})}}
+ for(const s of st)if(outB(s)){if(s.bmr>0){s.bmr--;reflect(s);G.fx.push({x:s.x,y:s.y,t:0,c:'#ffb36e',txt:'🪃'})}else if(s.shield>0){bounceIn(s);G.fx.push({x:s.x,y:s.y,t:0,c:'#6ec8ff',txt:'🔰'})}else{s.fall=0.001;growCheck(s)}}}
+function reflect(s){s.shield++;bounceIn(s)}
+function growCheck(s){const sh=G.shotStone,me=G.shooter;if(!me||s.col===me)return;
+ if(has(me,'vampire')&&G.vamp[me]<2*cnt(me,'vampire')){const y=me==='white'?B.y+40:B.y+B.h-40;
+  for(let k=0;k<40;k++){const x=B.x+40+Math.random()*(B.w-80);if(G.stones.every(o=>!o.alive||Math.hypot(o.x-x,o.y-y)>o.r+R+4)){G.vamp[me]++;G.stones.push(mk(me,x,y));G.fx.push({x,y,t:0,c:'#ff4a6a',txt:'🩸'});break}}}
+ if(!sh||!sh.alive||sh.fall||!has(me,'grow'))return;
+ if(sh.r<R*(1.8+.6*cnt(me,'grow'))){sh.r*=1+.18*cnt(me,'grow');sh.m*=1+.3*cnt(me,'grow');G.fx.push({x:sh.x,y:sh.y,t:0,c:'#7dff7d',txt:'🌱'})}}
 
 // ===== 능력 알까기 =====
 const TIER={1:{n:'실버',c:'#cfd8e3',bg:'linear-gradient(#4a5566,#1a2030)'},2:{n:'골드',c:'#ffcf40',bg:'linear-gradient(#6b4e12,#241806)'},3:{n:'프리즘',c:'#ff7cf0',bg:'linear-gradient(135deg,#5a2a8a,#1e5a8a,#7a2a5a)'}};
 const SK={
  grip:{t:1,ic:'🧲',n:'접지력',d:'내 알이 밀려날 때<br>마찰 2배로 금방 멈춰요'},
  curse:{t:1,ic:'🪶',n:'깃털 저주',d:'상대 알 무게 -30%<br>더 멀리 날아가요'},
- scope:{t:1,ic:'🎯',n:'정밀 조준',d:'조준할 때 모든 알의<br>예상 경로가 보여요'},
  ghost:{t:1,ic:'👻',n:'유령 샷',d:'내가 쏜 알이<br>내 알을 통과해요'},
  swift:{t:1,ic:'🏹',n:'순발력',d:'발사 세기 +15%'},
- reinforce:{t:1,ic:'➕',n:'증원',d:'판 시작 시 내 알 +1<br>(중복 선택 가능)'},
+ reinforce:{t:1,ic:'➕',n:'증원',d:'판 시작 시 내 알 +1'},
+ ballast:{t:1,ic:'🪨',n:'무게추',d:'내 알 무게 +25%'},
+ ice:{t:1,ic:'🧊',n:'빙판',d:'상대 알 마찰 -30%<br>한 번 밀리면 쭉 미끄러져요'},
+ shrink:{t:1,ic:'🔻',n:'축소 저주',d:'판 시작 시 상대 알 2개<br>크기 -30% · 무게 -40%'},
+ initiative:{t:1,ic:'🏃',n:'선공권',d:'매 판 내가 먼저 쏴요<br>(둘 다 있으면 원래대로)'},
+ scope:{t:2,ic:'🎯',n:'정밀 조준',d:'조준할 때 모든 알의<br>예상 경로가 보여요'},
  iron:{t:2,ic:'🛡️',n:'강철 알',d:'내 알 무게 +70%<br>부딪혀도 잘 안 밀려요'},
  giant:{t:2,ic:'🗿',n:'거대화',d:'내 알 크기 +25%<br>무게 +40%'},
  power:{t:2,ic:'💪',n:'괴력',d:'발사 세기 +30%'},
  shock:{t:2,ic:'💥',n:'충격파',d:'내가 쏜 알의 타격이<br>50% 더 강해져요'},
  shield:{t:2,ic:'🔰',n:'보호막',d:'판마다 내 알 3개에 보호막<br>떨어질 때 1번 튕겨 돌아와요'},
  revive:{t:2,ic:'👼',n:'부활',d:'판마다 처음 떨어진<br>내 알 1개가 뒷줄에 부활'},
- grow:{t:2,ic:'🌱',n:'성장',d:'내가 쏜 알이 상대 알을<br>떨어뜨릴 때마다 커지고<br>무거워져요 (판 내내 유지)'},
- bomb:{t:2,ic:'💣',n:'자폭 알',d:'판마다 내 알 1개가 폭탄<br>쏴서 부딪히면 폭발!<br>주변 알을 날려버려요'},
- militia:{t:3,ic:'🪖',n:'민병대',d:'내 알을 모두 없애고<br>작은 알 20개로<br>판을 시작해요'},
+ grow:{t:2,ic:'🌱',n:'성장',d:'내가 쏜 알이 상대 알을<br>떨어뜨릴 때마다<br>커지고 무거워져요'},
+ bomb:{t:2,ic:'💣',n:'자폭 알',d:'판마다 내 알 1개가 폭탄<br>쏴서 부딪히면 폭발!'},
+ vampire:{t:2,ic:'🩸',n:'흡혈',d:'상대 알을 떨어뜨리면<br>내 알이 뒷줄에 생겨요<br>(판마다 최대 2개)'},
+ boomerang:{t:2,ic:'🪃',n:'부메랑',d:'내가 쏜 알이 판 밖으로<br>나가면 1번 튕겨 돌아와요'},
+ turtle:{t:2,ic:'🐢',n:'거북 등껍질',d:'내 알 크기 -15%<br>무게 2배'},
+ militia:{t:3,ic:'🪖',n:'민병대',d:'내 알을 모두 없애고<br>작은 알 10개로<br>판을 시작해요'},
  king:{t:3,ic:'👑',n:'거인왕',d:'가운데 내 알 1개가<br>크기 2배 · 무게 4배'},
  legion:{t:3,ic:'⚔️',n:'군단',d:'판 시작 시 내 알 +3'},
- aegis:{t:3,ic:'✨',n:'신성 보호막',d:'판마다 내 모든 알에<br>보호막 1회'}};
-const AIPRI=['militia','aegis','king','legion','iron','shield','bomb','grow','giant','revive','power','shock','reinforce','swift','grip','curse','ghost','scope'];
+ aegis:{t:3,ic:'✨',n:'신성 보호막',d:'판마다 내 모든 알에<br>보호막 1회'},
+ storm:{t:3,ic:'🌪️',n:'태풍',d:'상대 알 전부<br>무게 -40% · 마찰 -40%'},
+ meteor:{t:3,ic:'☄️',n:'메테오',d:'판 시작 시 상대 알<br>2개를 무작위로 파괴<br>(최소 2개는 남겨요)'},
+ diamond:{t:3,ic:'💠',n:'금강불괴',d:'내 알 무게 2.5배<br>거의 안 밀려요'},
+ titan:{t:3,ic:'💫',n:'거신의 일격',d:'발사 세기 +60%<br>타격 +80%'}};
+const AIPRI=['meteor','militia','aegis','titan','diamond','king','legion','storm','iron','shield','vampire','bomb','grow','boomerang','turtle','giant','revive','power','shock','scope','reinforce','shrink','ballast','initiative','swift','ice','grip','curse','ghost'];
 const ROUND_W={1:[60,35,5],2:[35,50,15],3:[20,50,30],4:[10,45,45],5:[0,40,60]};
 function rollTier(r){const w=ROUND_W[Math.min(r,5)],t=Math.random()*100;return t<w[0]?1:t<w[0]+w[1]?2:3}
 const other=c=>c==='black'?'white':'black';
 function cnt(col,id,ab=G.ab){return ab?ab.skills[col].filter(x=>x===id).length:0}
 function has(col,id,ab=G.ab){return cnt(col,id,ab)>0}
-const powMul=col=>(has(col,'power')?1.3:1)*(has(col,'swift')?1.15:1);
+const powMul=col=>Math.min(2.4,1.3**cnt(col,'power')*1.15**cnt(col,'swift')*1.6**cnt(col,'titan'));
 const icons=col=>G.ab?G.ab.skills[col].map(k=>SK[k].ic).join(''):'';
-function mk(col,x,y,small=false){let m=1,r=R;if(small){r*=.6;m*=.35}if(has(col,'giant')){r*=1.25;m*=1.4}if(has(col,'iron'))m*=1.7;if(has(other(col),'curse'))m*=.7;
- return{col,x,y,vx:0,vy:0,alive:true,fall:0,r,m,dec:has(col,'grip')?DECEL*2:DECEL,kick:has(col,'shock')?1.5:1,ghost:has(col,'ghost'),shield:0,shot:false}}
+function mk(col,x,y,small=false){let m=1,r=R;const op=other(col),c=k=>cnt(col,k),o=k=>cnt(op,k);if(small){r*=.6;m*=.35}
+ r*=1.25**c('giant')*.85**c('turtle');m*=1.4**c('giant')*1.7**c('iron')*1.25**c('ballast')*2**c('turtle')*2.5**c('diamond')*.7**o('curse')*.6**o('storm');
+ r=Math.max(R*.45,Math.min(R*2.2,r));m=Math.max(.12,Math.min(30,m));
+ const dec=Math.max(DECEL*.3,Math.min(DECEL*4,DECEL*(1+c('grip'))*.7**o('ice')*.6**o('storm'))),kick=Math.min(3,1+.5*c('shock')+.8*c('titan'));
+ return{col,x,y,vx:0,vy:0,alive:true,fall:0,r,m,dec,kick,ghost:has(col,'ghost'),shield:0,shot:false}}
 const pname=col=>G.mode==='ai'?(col===G.human?'나':'AI'):(col==='black'?'1P (흑)':'2P (백)');
 function startAbility(){const mode=optVal('optAbMode');
- const ab={diff:optVal('optAbDiff'),human:optVal('optAbColor'),score:{black:0,white:0},round:1,first:'black',skills:{black:[],white:[]}};
+ const inf=optVal('optAbLen')==='inf';const ab={inf,lives:3,earned:0,diff:optVal('optAbDiff'),human:optVal('optAbColor'),score:{black:0,white:0},round:1,first:'black',skills:{black:[],white:[]}};
  G={mode,ab,running:false,human:mode==='ai'?ab.human:null};beginPicks(['black','white'])}
-function beginPicks(q){G.pickQ=q;G.ab.tier=rollTier(G.ab.round);nextPick()}
-function nextPick(){const A=G.ab;if(!G.pickQ.length){startGame(G.mode,A);flash(`⚡ ${A.round}라운드 시작! ${A.first==='black'?'⚫ 흑':'⚪ 백'} 선공`);return}
+function beginPicks(q){G.pickQ=q;G.meteorMsg='';G.ab.tier=rollTier(G.ab.round);nextPick()}
+function nextPick(){const A=G.ab;if(!G.pickQ.length){const ib=has('black','initiative'),iw=has('white','initiative');if(ib!==iw)A.first=ib?'black':'white';
+  startGame(G.mode,A);flash(`⚡ ${A.round}라운드 시작! ${A.first==='black'?'⚫ 흑':'⚪ 백'} 선공`+(G.meteorMsg?' · '+G.meteorMsg:''));return}
  const col=G.pickQ.shift();showPick(col,offer(col),true)}
-function offer(col){const t=G.ab.tier;let pool=Object.keys(SK).filter(k=>SK[k].t===t&&(k==='reinforce'||k==='legion'||!G.ab.skills[col].includes(k)));
- if(pool.length<3)pool=pool.concat(Object.keys(SK).filter(k=>SK[k].t===t-1&&!pool.includes(k)&&!G.ab.skills[col].includes(k)));return pool.sort(()=>Math.random()-.5).slice(0,3)}
+function offer(col){const t=G.ab.tier,inf=G.ab.inf,ok=k=>inf||k==='reinforce'||k==='legion'||!G.ab.skills[col].includes(k);
+ let pool=Object.keys(SK).filter(k=>SK[k].t===t&&ok(k));
+ if(pool.length<3)pool=pool.concat(Object.keys(SK).filter(k=>SK[k].t!==t&&ok(k)&&!pool.includes(k)).sort(()=>Math.random()-.5).slice(0,3-pool.length));return pool.sort(()=>Math.random()-.5).slice(0,3)}
 function showPick(col,opts,canReroll){const A=G.ab,ai=G.mode==='ai'&&col!==G.human;show('aug');
- $('augTop').innerHTML=`${A.round}라운드 · ⚫ ${A.score.black} : ${A.score.white} ⚪ · 3선승`;
+ $('augTop').innerHTML=`${A.round}라운드 · ⚫ ${A.score.black} : ${A.score.white} ⚪`+(A.inf?infTag():' · 3선승');
  const T=TIER[A.tier];$('augTitle').innerHTML=`<span style="color:${T.c}">◆ ${T.n} 등급</span><br>`+(ai?'AI가 능력을 고르는 중...':`${col==='black'?'⚫':'⚪'} ${pname(col)} 능력 선택`);
  const box=$('augCards');box.innerHTML='';
  opts.forEach((k,i)=>{const s=SK[k],d=document.createElement('div');d.className='aug';d.style.animationDelay=(i*.12)+'s';const TT=TIER[SK[k].t];d.style.background=TT.bg;d.style.borderColor=TT.c;d.style.boxShadow=SK[k].t===3?'0 0 18px '+TT.c:'';
   const c=cnt(col,k);d.innerHTML=`<div class="ic">${s.ic}</div><div class="nm">${s.n}${c?' +'+(c+1):''}</div><div class="ds">${s.d}</div>`;
   if(!ai)d.onclick=()=>choose(col,k,box,i);box.appendChild(d)});
  const rr=$('augReroll');rr.style.display=ai||!canReroll?'none':'';rr.onclick=()=>showPick(col,offer(col),false);
- const own=c=>A.skills[c].length?A.skills[c].map(k=>`${SK[k].ic} ${SK[k].n}`).join(' · '):'없음';
+ const own=c=>{const m={};A.skills[c].forEach(k=>m[k]=(m[k]||0)+1);const e=Object.entries(m);return e.length?e.map(([k,n])=>`${SK[k].ic} ${SK[k].n}${n>1?'×'+n:''}`).join(' · '):'없음'};
  $('augOwned').innerHTML=`⚫ ${pname('black')}: ${own('black')}<br>⚪ ${pname('white')}: ${own('white')}`;
  if(ai){let k;const r=Math.random();if(A.diff==='hard'||(A.diff==='normal'&&r<.6))k=[...opts].sort((a,b)=>AIPRI.indexOf(a)-AIPRI.indexOf(b))[0];else k=opts[Math.random()*3|0];
   setTimeout(()=>choose(col,k,box,opts.indexOf(k)),1300)}}
@@ -387,9 +414,22 @@ function choose(col,k,box,i){if(box.dataset.lock==='1')return;box.dataset.lock='
  [...box.children].forEach((c,j)=>c.classList.add(j===i?'chosen':'dim'));$('augTitle').innerHTML=`${pname(col)}: ${SK[k].ic} ${SK[k].n} 획득!`;
  setTimeout(()=>{box.dataset.lock='';nextPick()},1100)}
 function flash(t){const f=$('flash');f.textContent=t;f.style.display='block';clearTimeout(flash.h);flash.h=setTimeout(()=>f.style.display='none',1700)}
-function roundEnd(win){const A=G.ab;A.score[win]++;const m=$('roundMsg');
- m.innerHTML=`<div style="font-size:34px;font-weight:bold;color:${G.mode==='ai'&&win!==G.human?'#9aa4b8':'#ffd36b'}">${win==='black'?'⚫':'⚪'} ${pname(win)} 라운드 승리!</div><div style="font-size:26px;margin-top:8px">⚫ ${A.score.black} : ${A.score.white} ⚪</div>`;m.style.display='block';
- const g0=G;setTimeout(()=>{if(G!==g0)return;m.style.display='none';if(A.score[win]>=3){A.final=true;finish(win);return}
+const infTag=()=>{const A=G.ab;if(!A||!A.inf)return'';return ' · ♾️ 무한'+(G.mode==='ai'?' · '+'❤️'.repeat(Math.max(0,A.lives))+'🖤'.repeat(3-Math.max(0,A.lives)):'')};
+function quitInf(){if(!G.ab||!G.ab.inf||G.over&&!G.running)return;if(!confirm('무한 모드를 끝낼까요?'))return;infEnd()}
+function infEnd(){const A=G.ab;G.over=true;G.running=false;A.final=true;$('quitInf').style.display='none';$('roundMsg').style.display='none';
+ const sc=`⚫ ${A.score.black} : ${A.score.white} ⚪`,rounds=A.round-1+(G.roundDone?1:0);let title,icon,sub,isWin;
+ const own=c=>{const m={};A.skills[c].forEach(k=>m[k]=(m[k]||0)+1);return Object.entries(m).map(([k,n])=>SK[k].ic+SK[k].n+(n>1?'×'+n:'')).join(' · ')||'없음'};
+ if(G.mode==='ai'){const me=G.human,wins=A.score[me];isWin=wins>=A.score[other(me)];title=A.lives<=0?'무한 모드 종료':'무한 모드 완료';icon=wins>=10?'👑':wins>=5?'🏆':wins>0?'🎖️':'💀';
+  sub=`♾️ ${sc} · ${wins}라운드 승리!<br>🪙 총 +${A.earned} 알포인트 획득<br>보유: ${SAVE.points} 알포인트<br><span style="font-size:14px;color:#cdb8ff">내 능력: ${own(me)}</span>`}
+ else{isWin=true;const w=A.score.black===A.score.white?null:(A.score.black>A.score.white?'black':'white');title=w?(w==='black'?'⚫ 1P':'⚪ 2P')+' 승리!':'무승부!';icon='🏆';
+  sub=`♾️ 무한 모드 ${sc}<br><span style="font-size:14px;color:#cdb8ff">⚫ ${own('black')}<br>⚪ ${own('white')}</span>`}
+ $('rTitle').textContent=title;$('rTitle').className=isWin?'':'lose';$('rIcon').textContent=icon;$('rSub').innerHTML=sub;
+ $('result').style.background=isWin?'radial-gradient(circle at 50% 30%,#6a4a10,#1b1410)':'radial-gradient(circle at 50% 30%,#2a3040,#0b0d12)';
+ show('result');if(isWin){confettiOn=true;parts=Array.from({length:150},()=>({x:Math.random()*640,y:-Math.random()*740,v:2+Math.random()*3,a:Math.random()*6,c:`hsl(${Math.random()*360},90%,60%)`}));confetti()}else rain()}
+function roundEnd(win){const A=G.ab;A.score[win]++;const m=$('roundMsg');let extra='';
+ if(A.inf&&G.mode==='ai'){if(win===G.human){const pt=REWARD[G.diff];SAVE.points+=pt;A.earned+=pt;save();extra=`<div style="font-size:18px;margin-top:6px">🪙 +${pt} 알포인트</div>`}else{A.lives--;extra=`<div style="font-size:18px;margin-top:6px">${'❤️'.repeat(Math.max(0,A.lives))}${'🖤'.repeat(3-Math.max(0,A.lives))} 목숨 -1</div>`}}
+ m.innerHTML=`<div style="font-size:34px;font-weight:bold;color:${G.mode==='ai'&&win!==G.human?'#9aa4b8':'#ffd36b'}">${win==='black'?'⚫':'⚪'} ${pname(win)} 라운드 승리!</div><div style="font-size:26px;margin-top:8px">⚫ ${A.score.black} : ${A.score.white} ⚪</div>`+extra;m.style.display='block';
+ const g0=G;setTimeout(()=>{if(G!==g0)return;m.style.display='none';if(A.inf){if(G.mode==='ai'&&A.lives<=0){G.roundDone=1;infEnd();return}}else if(A.score[win]>=3){A.final=true;finish(win);return}
   A.round++;A.first=other(win);G.running=false;beginPicks([other(win),win])},2000)}
 function predict(s0,vx,vy){const live=G.stones.filter(s=>s.alive),st=cloneStones(),si=live.indexOf(s0),pm=powMul(s0.col);Object.assign(st[si],{vx:vx*pm,vy:vy*pm,shot:true});
  const tr=st.map(s=>[[s.x,s.y]]);for(let t=0;t<700;t++){physStep(st.filter(s=>!s.out),1/140);let mv=false;
@@ -404,7 +444,7 @@ function loop(now){if(!G.running)return;const dt=Math.min((now-last)/1000,1/30);
  draw();requestAnimationFrame(loop)}
 function tryRevive(col){if(!G.revive||!(G.revive[col]>0))return;G.revive[col]--;const y=col==='white'?B.y+40:B.y+B.h-40;
  for(let k=0;k<40;k++){const x=B.x+40+Math.random()*(B.w-80);if(G.stones.every(o=>!o.alive||Math.hypot(o.x-x,o.y-y)>o.r+R+4)){const n=mk(col,x,y);G.stones.push(n);G.fx.push({x,y,t:0,c:'#fff7a0',txt:'👼'});flash(`👼 ${pname(col)} 부활!`);return}}}
-function endShot(){G.moving=false;G.stones.forEach(s=>s.shot=false);const b=alive('black').length,w=alive('white').length;
+function endShot(){G.moving=false;G.stones.forEach(s=>{s.shot=false;s.bmr=0});const b=alive('black').length,w=alive('white').length;
  if(b===0||w===0){let win=b===0&&w===0?(G.shooter==='black'?'white':'black'):(b===0?'white':'black');finish(win);return}
 
  G.turn=G.turn==='black'?'white':'black';nextTurnUI()}
