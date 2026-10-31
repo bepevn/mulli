@@ -55,7 +55,7 @@ canvas{display:block}
  • 내 차례에 <b>내 알을 누르고 뒤로 당겼다 놓으면</b> 반대 방향으로 튕겨나가요.<br>
  • 많이 당길수록 세게 나가요 (새총 방식).<br>• 판 밖으로 나간 알은 사라져요. 내 알도 나갈 수 있으니 조심!<br>
  • 상대 알을 모두 없애면 승리. 흑이 먼저 둡니다.<br>
- • <b>⚡ 능력 알까기</b>: 5판 3선승. 매 판 시작 전 능력 3개 중 1개를 골라 쌓아가요.<br>
+ • <b>⚡ 능력 알까기</b>: 5판 3선승. 매 판 시작 전 능력 3개 중 1개를 골라 쌓아가요. 라운드마다 실버·골드·프리즘 등급이 달라져요.<br>
  • AI에게 이기면 알포인트 획득 (쉬움 10 · 보통 20 · 어려움 35 + 남은 알 1개당 2).<br>• 포인트로 흑돌·백돌 스킨을 각각 살 수 있어요.</div>
  <button class="btn" onclick="show('menu')">돌아가기</button></div>
 
@@ -255,9 +255,14 @@ function startGame(mode,ab=null){
  G.skin={black:SAVE.equip.black,white:SAVE.equip.white};
  if(mode==='ai'){const aiCol=G.human==='black'?'white':'black';G.skin[aiCol]=aiCol==='black'?'b0':'w0'}
  for(let i=0;i<5;i++){const x=B.x+100+i*100;G.stones.push(mk('white',x,B.y+130+(i%2)*40));G.stones.push(mk('black',x,B.y+B.h-130-(i%2)*40))}
- for(const col of['black','white']){const n=cnt(col,'reinforce');for(let i=0;i<n;i++)G.stones.push(mk(col,B.x+B.w/2+(i-(n-1)/2)*90,col==='white'?B.y+62:B.y+B.h-62));
-  if(has(col,'shield')){const my=G.stones.filter(s=>s.col===col).sort(()=>Math.random()-.5);my.slice(0,3).forEach(s=>s.shield=1)}}
- drawStone($('ib').getContext('2d'),15,15,12,G.skin.black);drawStone($('iw').getContext('2d'),15,15,12,G.skin.white);
+ for(const col of['black','white']){const back=col==='white'?B.y+62:B.y+B.h-62;
+  if(has(col,'militia')){G.stones=G.stones.filter(s=>s.col!==col);for(let i=0;i<20;i++){const cx=B.x+120+(i%5)*90,cy=col==='white'?B.y+60+(i/5|0)*42:B.y+B.h-60-(i/5|0)*42;G.stones.push(mk(col,cx,cy,true))}}
+  const n=cnt(col,'reinforce')+3*cnt(col,'legion');for(let i=0;i<n;i++)G.stones.push(mk(col,B.x+B.w/2+(i-(n-1)/2)*(n>5?75:90),has(col,'militia')?(col==='white'?B.y+235:B.y+B.h-235):back,has(col,'militia')));
+  const my=()=>G.stones.filter(s=>s.col===col);
+  if(has(col,'king')){const s=my().sort((a,b)=>Math.abs(a.x-320)-Math.abs(b.x-320))[0];s.r*=2;s.m*=4;s.king=1}
+  if(has(col,'aegis'))my().forEach(s=>s.shield=1);else if(has(col,'shield'))my().sort(()=>Math.random()-.5).slice(0,3).forEach(s=>s.shield=1);
+  if(has(col,'bomb')){const c=my().filter(s=>!s.king).sort(()=>Math.random()-.5);if(c[0])c[0].bomb=1}}
+ G.shooter=null;
  $('lb').textContent=(mode==='ai'?(G.human==='black'?'나':'AI'):'1P')+' '+icons('black');$('lw').textContent=icons('white')+' '+(mode==='ai'?(G.human==='white'?'나':'AI'):'2P');
  show('game');G.running=true;nextTurnUI();last=performance.now();requestAnimationFrame(loop)}
 const isAI=()=>G.mode==='ai'&&G.turn!==G.human;
@@ -275,7 +280,7 @@ function up(){if(!aim)return;let dx=aim.x-mouse.x,dy=aim.y-mouse.y,d=Math.hypot(
  if(d>8){const k=Math.min(d,MAXPULL)/d;shoot(aim,dx*k*POWER,dy*k*POWER)}aim=null}
 cv.addEventListener('mousedown',down);addEventListener('mousemove',move);addEventListener('mouseup',up);
 cv.addEventListener('touchstart',down,{passive:false});addEventListener('touchmove',move,{passive:false});addEventListener('touchend',up);
-function shoot(s,vx,vy){const pm=powMul(s.col);s.vx=vx*pm;s.vy=vy*pm;s.shot=true;G.moving=true;G.shooter=G.turn;G.enemyBefore=alive(other(G.turn)).length}
+function shoot(s,vx,vy){G.shotStone=s;const pm=powMul(s.col);s.vx=vx*pm;s.vy=vy*pm;s.shot=true;G.moving=true;G.shooter=G.turn;G.enemyBefore=alive(other(G.turn)).length}
 
 // ----- AI: 후보 샷을 실제 물리엔진으로 미리 굴려보고 결과가 가장 좋은 샷 선택 -----
 const AICFG={easy:{noise:[.09,.18],pick:.35,offs:[0],pows:[.6,1]},
@@ -283,8 +288,8 @@ const AICFG={easy:{noise:[.09,.18],pick:.35,offs:[0],pows:[.6,1]},
              hard:{noise:[.01,.025],pick:0,offs:[-.5,-.25,0,.25,.5],pows:[.35,.55,.75,1]}};
 function simulate(shooterIdx,vx,vy,me){
  const st=cloneStones();const pm=powMul(me);Object.assign(st[shooterIdx],{vx:vx*pm,vy:vy*pm,shot:true});
- let act=st;for(let t=0;t<900;t++){physStep(act,1/200);let moving=false;
-  for(const s of act){if(outB(s)){if(s.shield>0)bounceIn(s);else s.out=true}else if(s.vx||s.vy)moving=true}act=act.filter(s=>!s.out);if(!moving)break}
+ let act=st;for(let t=0;t<900;t++){physStep(act,1/200);for(const s of act)if(s.boom){explode(act,s);s.out=true}let moving=false;
+  for(const s of act){if(s.out)continue;if(outB(s)){if(s.shield>0)bounceIn(s);else s.out=true}else if(s.vx||s.vy)moving=true}act=act.filter(s=>!s.out);if(!moving)break}
  let score=0;const edge=s=>Math.min(s.x-B.x,B.x+B.w-s.x,s.y-B.y,B.y+B.h-s.y);
  for(const s of st){if(s.col===me){if(s.out)score-=130;else score+=Math.min(edge(s),150)*.15}
   else{if(s.out)score+=100;else score-=Math.min(edge(s),150)*.08}}
@@ -297,6 +302,7 @@ function aiShoot(){if(!G.running||G.over||!isAI())return;
   for(const off of cfg.offs){const a=base+Math.asin(Math.max(-.95,Math.min(.95,off*2*R/d)));
    for(const p of cfg.pows)cands.push({si,s,a,v:MAXV*p})}}});
  if(!cands.length){const s=live.find(s=>s.col===me);cands.push({si:live.indexOf(s),s,a:-Math.PI/2,v:MAXV*.3})}
+ {const MAXC={easy:40,normal:90,hard:150}[G.diff];if(cands.length>MAXC){cands.sort(()=>Math.random()-.5);cands.length=MAXC}}
  for(const c of cands)c.score=simulate(c.si,Math.cos(c.a)*c.v,Math.sin(c.a)*c.v,me);
  cands.sort((a,b)=>b.score-a.score);
  // 어려움: 상위 후보를 흔들림 넣어 재검증 → 실수해도 안전한 샷 선택
@@ -309,51 +315,67 @@ function aiShoot(){if(!G.running||G.over||!isAI())return;
 function physStep(st,dt){
  for(const s of st){const sp=Math.hypot(s.vx,s.vy);if(sp>0){const dc=s.shot?DECEL:(s.dec||DECEL),ns=Math.max(0,sp-dc*dt);s.vx*=ns/sp;s.vy*=ns/sp}s.x+=s.vx*dt;s.y+=s.vy*dt}
  for(let i=0;i<st.length;i++)for(let j=i+1;j<st.length;j++){const a=st[i],b=st[j],ra=a.r||R,rb=b.r||R,dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
-  if(d<ra+rb&&d>0){if((a.shot&&a.ghost&&b.col===a.col)||(b.shot&&b.ghost&&a.col===b.col))continue;
+  if(d<ra+rb&&d>0){if((a.shot&&a.ghost&&b.col===a.col)||(b.shot&&b.ghost&&a.col===b.col))continue;if(a.shot&&a.bomb)a.boom=1;if(b.shot&&b.bomb)b.boom=1;
    const nx=dx/d,ny=dy/d,ia=1/(a.m||1),ib=1/(b.m||1),sm=ia+ib,o=ra+rb-d;a.x-=nx*o*ia/sm;a.y-=ny*o*ia/sm;b.x+=nx*o*ib/sm;b.y+=ny*o*ib/sm;
    const vn=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;if(vn<0){const k=(a.shot&&a.kick)||(b.shot&&b.kick)||1,J=-(1+.92)*vn/sm*k;a.vx-=J*nx*ia;a.vy-=J*ny*ia;b.vx+=J*nx*ib;b.vy+=J*ny*ib}}}}
 const outB=s=>s.x<B.x||s.x>B.x+B.w||s.y<B.y||s.y>B.y+B.h;
 function bounceIn(s){s.shield--;if(s.x<B.x){s.x=B.x+2;s.vx=Math.abs(s.vx)*.5}if(s.x>B.x+B.w){s.x=B.x+B.w-2;s.vx=-Math.abs(s.vx)*.5}
  if(s.y<B.y){s.y=B.y+2;s.vy=Math.abs(s.vy)*.5}if(s.y>B.y+B.h){s.y=B.y+B.h-2;s.vy=-Math.abs(s.vy)*.5}}
-function cloneStones(){return G.stones.filter(s=>s.alive).map(s=>({col:s.col,x:s.x,y:s.y,vx:0,vy:0,r:s.r,m:s.m,dec:s.dec,kick:s.kick,ghost:s.ghost,shield:s.shield,out:false}))}
+function cloneStones(){return G.stones.filter(s=>s.alive).map(s=>({col:s.col,x:s.x,y:s.y,vx:0,vy:0,r:s.r,m:s.m,dec:s.dec,kick:s.kick,ghost:s.ghost,shield:s.shield,bomb:s.bomb,out:false}))}
+const BOOM_R=150,BOOM_P=1100;
+function explode(st,b){for(const o of st){if(o===b||o.out||o.fall)continue;const dx=o.x-b.x,dy=o.y-b.y,d=Math.hypot(dx,dy)||1;if(d>BOOM_R)continue;
+  const k=BOOM_P*(1-d/BOOM_R)/(o.m||1);o.vx+=dx/d*k;o.vy+=dy/d*k}b.boom=0;b.bomb=0;b.vx=b.vy=0}
 function step(dt){const st=G.stones.filter(s=>s.alive&&s.fall===0);physStep(st,dt);
- for(const s of st)if(outB(s)){if(s.shield>0){bounceIn(s);G.fx.push({x:s.x,y:s.y,t:0,c:'#6ec8ff',txt:'🔰'})}else s.fall=0.001}}
+ for(const s of st)if(s.boom){explode(st,s);s.fall=0.001;G.fx.push({x:s.x,y:s.y,t:0,c:'#ff5a1f',txt:'💥',big:1});flash('💣 자폭!')}
+ for(const s of st)if(outB(s)){if(s.shield>0){bounceIn(s);G.fx.push({x:s.x,y:s.y,t:0,c:'#6ec8ff',txt:'🔰'})}else{s.fall=0.001;growCheck(s)}}}
+function growCheck(s){const sh=G.shotStone;if(!sh||!sh.alive||sh.fall||s.col===G.shooter||!has(G.shooter,'grow'))return;
+ if(sh.r<R*2.4){sh.r*=1.18;sh.m*=1.3;G.fx.push({x:sh.x,y:sh.y,t:0,c:'#7dff7d',txt:'🌱'})}}
 
 // ===== 능력 알까기 =====
+const TIER={1:{n:'실버',c:'#cfd8e3',bg:'linear-gradient(#4a5566,#1a2030)'},2:{n:'골드',c:'#ffcf40',bg:'linear-gradient(#6b4e12,#241806)'},3:{n:'프리즘',c:'#ff7cf0',bg:'linear-gradient(135deg,#5a2a8a,#1e5a8a,#7a2a5a)'}};
 const SK={
- iron:{ic:'🛡️',n:'강철 알',d:'내 알 무게 +70%<br>부딪혀도 잘 안 밀려요'},
- giant:{ic:'🗿',n:'거대화',d:'내 알 크기 +25%<br>무게 +40%'},
- power:{ic:'💪',n:'괴력',d:'발사 세기 +30%'},
- grip:{ic:'🧲',n:'접지력',d:'내 알이 밀려날 때<br>마찰 2배로 금방 멈춰요'},
- shock:{ic:'💥',n:'충격파',d:'내가 쏜 알의 타격이<br>50% 더 강해져요'},
- shield:{ic:'🔰',n:'보호막',d:'판마다 내 알 3개에 보호막<br>떨어질 때 1번 튕겨 돌아와요'},
- extra:{ic:'🔁',n:'연속타',d:'상대 알을 떨어뜨리면<br>한 번 더 쏴요'},
- reinforce:{ic:'➕',n:'증원',d:'판 시작 시 내 알 +1<br>(중복 선택 가능)'},
- revive:{ic:'👼',n:'부활',d:'판마다 처음 떨어진<br>내 알 1개가 뒷줄에 부활'},
- ghost:{ic:'👻',n:'유령 샷',d:'내가 쏜 알이<br>내 알을 통과해요'},
- curse:{ic:'🪶',n:'깃털 저주',d:'상대 알 무게 -30%<br>더 멀리 날아가요'},
- scope:{ic:'🎯',n:'정밀 조준',d:'조준할 때 모든 알의<br>예상 경로가 보여요'}};
-const AIPRI=['extra','iron','shield','giant','revive','reinforce','power','shock','grip','curse','ghost','scope'];
+ grip:{t:1,ic:'🧲',n:'접지력',d:'내 알이 밀려날 때<br>마찰 2배로 금방 멈춰요'},
+ curse:{t:1,ic:'🪶',n:'깃털 저주',d:'상대 알 무게 -30%<br>더 멀리 날아가요'},
+ scope:{t:1,ic:'🎯',n:'정밀 조준',d:'조준할 때 모든 알의<br>예상 경로가 보여요'},
+ ghost:{t:1,ic:'👻',n:'유령 샷',d:'내가 쏜 알이<br>내 알을 통과해요'},
+ swift:{t:1,ic:'🏹',n:'순발력',d:'발사 세기 +15%'},
+ reinforce:{t:1,ic:'➕',n:'증원',d:'판 시작 시 내 알 +1<br>(중복 선택 가능)'},
+ iron:{t:2,ic:'🛡️',n:'강철 알',d:'내 알 무게 +70%<br>부딪혀도 잘 안 밀려요'},
+ giant:{t:2,ic:'🗿',n:'거대화',d:'내 알 크기 +25%<br>무게 +40%'},
+ power:{t:2,ic:'💪',n:'괴력',d:'발사 세기 +30%'},
+ shock:{t:2,ic:'💥',n:'충격파',d:'내가 쏜 알의 타격이<br>50% 더 강해져요'},
+ shield:{t:2,ic:'🔰',n:'보호막',d:'판마다 내 알 3개에 보호막<br>떨어질 때 1번 튕겨 돌아와요'},
+ revive:{t:2,ic:'👼',n:'부활',d:'판마다 처음 떨어진<br>내 알 1개가 뒷줄에 부활'},
+ grow:{t:2,ic:'🌱',n:'성장',d:'내가 쏜 알이 상대 알을<br>떨어뜨릴 때마다 커지고<br>무거워져요 (판 내내 유지)'},
+ bomb:{t:2,ic:'💣',n:'자폭 알',d:'판마다 내 알 1개가 폭탄<br>쏴서 부딪히면 폭발!<br>주변 알을 날려버려요'},
+ militia:{t:3,ic:'🪖',n:'민병대',d:'내 알을 모두 없애고<br>작은 알 20개로<br>판을 시작해요'},
+ king:{t:3,ic:'👑',n:'거인왕',d:'가운데 내 알 1개가<br>크기 2배 · 무게 4배'},
+ legion:{t:3,ic:'⚔️',n:'군단',d:'판 시작 시 내 알 +3'},
+ aegis:{t:3,ic:'✨',n:'신성 보호막',d:'판마다 내 모든 알에<br>보호막 1회'}};
+const AIPRI=['militia','aegis','king','legion','iron','shield','bomb','grow','giant','revive','power','shock','reinforce','swift','grip','curse','ghost','scope'];
+const ROUND_W={1:[60,35,5],2:[35,50,15],3:[20,50,30],4:[10,45,45],5:[0,40,60]};
+function rollTier(r){const w=ROUND_W[Math.min(r,5)],t=Math.random()*100;return t<w[0]?1:t<w[0]+w[1]?2:3}
 const other=c=>c==='black'?'white':'black';
 function cnt(col,id,ab=G.ab){return ab?ab.skills[col].filter(x=>x===id).length:0}
 function has(col,id,ab=G.ab){return cnt(col,id,ab)>0}
-const powMul=col=>has(col,'power')?1.3:1;
+const powMul=col=>(has(col,'power')?1.3:1)*(has(col,'swift')?1.15:1);
 const icons=col=>G.ab?G.ab.skills[col].map(k=>SK[k].ic).join(''):'';
-function mk(col,x,y){let m=1,r=R;if(has(col,'giant')){r*=1.25;m*=1.4}if(has(col,'iron'))m*=1.7;if(has(other(col),'curse'))m*=.7;
+function mk(col,x,y,small=false){let m=1,r=R;if(small){r*=.6;m*=.35}if(has(col,'giant')){r*=1.25;m*=1.4}if(has(col,'iron'))m*=1.7;if(has(other(col),'curse'))m*=.7;
  return{col,x,y,vx:0,vy:0,alive:true,fall:0,r,m,dec:has(col,'grip')?DECEL*2:DECEL,kick:has(col,'shock')?1.5:1,ghost:has(col,'ghost'),shield:0,shot:false}}
 const pname=col=>G.mode==='ai'?(col===G.human?'나':'AI'):(col==='black'?'1P (흑)':'2P (백)');
 function startAbility(){const mode=optVal('optAbMode');
  const ab={diff:optVal('optAbDiff'),human:optVal('optAbColor'),score:{black:0,white:0},round:1,first:'black',skills:{black:[],white:[]}};
  G={mode,ab,running:false,human:mode==='ai'?ab.human:null};beginPicks(['black','white'])}
-function beginPicks(q){G.pickQ=q;nextPick()}
+function beginPicks(q){G.pickQ=q;G.ab.tier=rollTier(G.ab.round);nextPick()}
 function nextPick(){const A=G.ab;if(!G.pickQ.length){startGame(G.mode,A);flash(`⚡ ${A.round}라운드 시작! ${A.first==='black'?'⚫ 흑':'⚪ 백'} 선공`);return}
  const col=G.pickQ.shift();showPick(col,offer(col),true)}
-function offer(col){const pool=Object.keys(SK).filter(k=>k==='reinforce'||!G.ab.skills[col].includes(k));return pool.sort(()=>Math.random()-.5).slice(0,3)}
+function offer(col){const t=G.ab.tier;let pool=Object.keys(SK).filter(k=>SK[k].t===t&&(k==='reinforce'||k==='legion'||!G.ab.skills[col].includes(k)));
+ if(pool.length<3)pool=pool.concat(Object.keys(SK).filter(k=>SK[k].t===t-1&&!pool.includes(k)&&!G.ab.skills[col].includes(k)));return pool.sort(()=>Math.random()-.5).slice(0,3)}
 function showPick(col,opts,canReroll){const A=G.ab,ai=G.mode==='ai'&&col!==G.human;show('aug');
  $('augTop').innerHTML=`${A.round}라운드 · ⚫ ${A.score.black} : ${A.score.white} ⚪ · 3선승`;
- $('augTitle').textContent=ai?'AI가 능력을 고르는 중...':`${col==='black'?'⚫':'⚪'} ${pname(col)} 능력 선택`;
+ const T=TIER[A.tier];$('augTitle').innerHTML=`<span style="color:${T.c}">◆ ${T.n} 등급</span><br>`+(ai?'AI가 능력을 고르는 중...':`${col==='black'?'⚫':'⚪'} ${pname(col)} 능력 선택`);
  const box=$('augCards');box.innerHTML='';
- opts.forEach((k,i)=>{const s=SK[k],d=document.createElement('div');d.className='aug';d.style.animationDelay=(i*.12)+'s';
+ opts.forEach((k,i)=>{const s=SK[k],d=document.createElement('div');d.className='aug';d.style.animationDelay=(i*.12)+'s';const TT=TIER[SK[k].t];d.style.background=TT.bg;d.style.borderColor=TT.c;d.style.boxShadow=SK[k].t===3?'0 0 18px '+TT.c:'';
   const c=cnt(col,k);d.innerHTML=`<div class="ic">${s.ic}</div><div class="nm">${s.n}${c?' +'+(c+1):''}</div><div class="ds">${s.d}</div>`;
   if(!ai)d.onclick=()=>choose(col,k,box,i);box.appendChild(d)});
  const rr=$('augReroll');rr.style.display=ai||!canReroll?'none':'';rr.onclick=()=>showPick(col,offer(col),false);
@@ -362,7 +384,7 @@ function showPick(col,opts,canReroll){const A=G.ab,ai=G.mode==='ai'&&col!==G.hum
  if(ai){let k;const r=Math.random();if(A.diff==='hard'||(A.diff==='normal'&&r<.6))k=[...opts].sort((a,b)=>AIPRI.indexOf(a)-AIPRI.indexOf(b))[0];else k=opts[Math.random()*3|0];
   setTimeout(()=>choose(col,k,box,opts.indexOf(k)),1300)}}
 function choose(col,k,box,i){if(box.dataset.lock==='1')return;box.dataset.lock='1';G.ab.skills[col].push(k);$('augReroll').style.display='none';
- [...box.children].forEach((c,j)=>c.classList.add(j===i?'chosen':'dim'));$('augTitle').textContent=`${pname(col)}: ${SK[k].ic} ${SK[k].n} 획득!`;
+ [...box.children].forEach((c,j)=>c.classList.add(j===i?'chosen':'dim'));$('augTitle').innerHTML=`${pname(col)}: ${SK[k].ic} ${SK[k].n} 획득!`;
  setTimeout(()=>{box.dataset.lock='';nextPick()},1100)}
 function flash(t){const f=$('flash');f.textContent=t;f.style.display='block';clearTimeout(flash.h);flash.h=setTimeout(()=>f.style.display='none',1700)}
 function roundEnd(win){const A=G.ab;A.score[win]++;const m=$('roundMsg');
@@ -384,7 +406,7 @@ function tryRevive(col){if(!G.revive||!(G.revive[col]>0))return;G.revive[col]--;
  for(let k=0;k<40;k++){const x=B.x+40+Math.random()*(B.w-80);if(G.stones.every(o=>!o.alive||Math.hypot(o.x-x,o.y-y)>o.r+R+4)){const n=mk(col,x,y);G.stones.push(n);G.fx.push({x,y,t:0,c:'#fff7a0',txt:'👼'});flash(`👼 ${pname(col)} 부활!`);return}}}
 function endShot(){G.moving=false;G.stones.forEach(s=>s.shot=false);const b=alive('black').length,w=alive('white').length;
  if(b===0||w===0){let win=b===0&&w===0?(G.shooter==='black'?'white':'black'):(b===0?'white':'black');finish(win);return}
- if(has(G.shooter,'extra')&&alive(other(G.shooter)).length<G.enemyBefore){flash('🔁 연속타! 한 번 더');nextTurnUI();return}
+
  G.turn=G.turn==='black'?'white':'black';nextTurnUI()}
 
 // ----- 그리기 -----
@@ -403,8 +425,10 @@ function draw(){ctx.fillStyle='#1b1410';ctx.fillRect(0,0,640,640);
    ctx.beginPath();p.tr.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));ctx.stroke();ctx.setLineDash([]);const e=p.tr[p.tr.length-1];
    ctx.strokeStyle=p.s.out?'#ff4040':'#ffffff88';ctx.beginPath();ctx.arc(e[0],e[1],p.s.r,0,7);ctx.stroke()}}}
  for(const s of G.stones)if(s.alive){drawStone(ctx,s.x,s.y,s.r*(1-s.fall*.6),G.skin[s.col],1-s.fall);
+  if(s.bomb&&!s.fall){ctx.strokeStyle=`rgba(255,60,30,${.6+.4*Math.sin(performance.now()/120)})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(s.x,s.y,s.r+2,0,7);ctx.stroke();ctx.font=`${s.r}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('💣',s.x,s.y);ctx.textAlign='left';ctx.textBaseline='alphabetic'}
+  if(s.king&&!s.fall){ctx.font='22px sans-serif';ctx.textAlign='center';ctx.fillText('👑',s.x,s.y-s.r-4);ctx.textAlign='left'}
   if(s.shield>0&&!s.fall){ctx.strokeStyle='#6ec8ffcc';ctx.lineWidth=3;ctx.beginPath();ctx.arc(s.x,s.y,s.r+3,0,7);ctx.stroke()}}
- for(const f of G.fx||[]){f.t+=1/60;ctx.globalAlpha=Math.max(0,1-f.t);ctx.strokeStyle=f.c;ctx.lineWidth=4;ctx.beginPath();ctx.arc(f.x,f.y,R+f.t*50,0,7);ctx.stroke();
+ for(const f of G.fx||[]){f.t+=1/60;ctx.globalAlpha=Math.max(0,1-f.t);ctx.strokeStyle=f.c;ctx.lineWidth=4;ctx.beginPath();ctx.arc(f.x,f.y,f.big?20+f.t*BOOM_R:R+f.t*50,0,7);ctx.stroke();if(f.big){ctx.fillStyle=`rgba(255,140,40,${.45*(1-f.t)})`;ctx.fill()}
   ctx.font='22px sans-serif';ctx.textAlign='center';ctx.fillText(f.txt,f.x,f.y-30-f.t*20);ctx.textAlign='left';ctx.globalAlpha=1}
  if(G.fx)G.fx=G.fx.filter(f=>f.t<1);
  // 조준선
