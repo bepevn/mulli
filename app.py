@@ -55,7 +55,7 @@ canvas{display:block}
  • 내 차례에 <b>내 알을 누르고 뒤로 당겼다 놓으면</b> 반대 방향으로 튕겨나가요.<br>
  • 많이 당길수록 세게 나가요 (새총 방식).<br>• 판 밖으로 나간 알은 사라져요. 내 알도 나갈 수 있으니 조심!<br>
  • 상대 알을 모두 없애면 승리. 흑이 먼저 둡니다.<br>
- • <b>⚡ 능력 알까기</b>: 5판 3선승. 매 판 시작 전 능력 3개 중 1개를 골라 쌓아가요. 무한 모드에서는 같은 능력을 여러 번 골라 효과를 겹칠 수 있어요(AI전은 목숨 3개, 라운드 승리마다 포인트). 라운드마다 실버·골드·프리즘 등급이 달라져요.<br>
+ • <b>⚡ 능력 알까기</b>: 5판 3선승. 매 판 시작 전 능력 3개 중 1개를 골라 쌓아가요. 무한 모드에서는 같은 능력을 여러 번 골라 효과를 겹칠 수 있어요(보호막·신성 보호막은 1번만)(AI전은 목숨 3개, 라운드 승리마다 포인트). 라운드마다 실버·골드·프리즘 등급이 달라져요.<br>
  • AI에게 이기면 알포인트 획득 (쉬움 10 · 보통 20 · 어려움 35 + 남은 알 1개당 2).<br>• 포인트로 흑돌·백돌 스킨을 각각 살 수 있어요.</div>
  <button class="btn" onclick="show('menu')">돌아가기</button></div>
 
@@ -259,14 +259,15 @@ function startGame(mode,ab=null){
  for(let i=0;i<5;i++){const x=B.x+100+i*100;G.stones.push(mk('white',x,B.y+130+(i%2)*40));G.stones.push(mk('black',x,B.y+B.h-130-(i%2)*40))}
  for(const col of['black','white']){const back=col==='white'?B.y+62:B.y+B.h-62;const mil=has(col,'militia');
   if(mil){G.stones=G.stones.filter(s=>s.col!==col);const N=Math.min(30,10*cnt(col,'militia'));for(let i=0;i<N;i++){const cx=B.x+120+(i%5)*90,cy=col==='white'?B.y+60+(i/5|0)*42:B.y+B.h-60-(i/5|0)*42;G.stones.push(mk(col,cx,cy,true))}}
-  const n=Math.min(12,cnt(col,'reinforce')+3*cnt(col,'legion'));for(let i=0;i<n;i++)G.stones.push(mk(col,B.x+B.w/2+(i-(n-1)/2)*(n>5?(n>7?55:75):90),mil?(col==='white'?B.y+60+Math.ceil(Math.min(30,10*cnt(col,'militia'))/5)*42:B.y+B.h-60-Math.ceil(Math.min(30,10*cnt(col,'militia'))/5)*42):back,mil));
+  const n=Math.min(12,cnt(col,'reinforce')+2*cnt(col,'twin')+3*cnt(col,'legion'));for(let i=0;i<n;i++)G.stones.push(mk(col,B.x+B.w/2+(i-(n-1)/2)*(n>5?(n>7?55:75):90),mil?(col==='white'?B.y+60+Math.ceil(Math.min(30,10*cnt(col,'militia'))/5)*42:B.y+B.h-60-Math.ceil(Math.min(30,10*cnt(col,'militia'))/5)*42):back,mil));
   const my=()=>G.stones.filter(s=>s.col===col);
   my().sort((a,b)=>Math.abs(a.x-320)-Math.abs(b.x-320)).slice(0,cnt(col,'king')).forEach(s=>{s.r=Math.min(s.r*2,R*2.6);s.m*=4;s.king=1});
   if(has(col,'aegis'))my().forEach(s=>s.shield=cnt(col,'aegis'));
   if(has(col,'shield'))my().sort(()=>Math.random()-.5).slice(0,3*cnt(col,'shield')).forEach(s=>s.shield++);
-  my().filter(s=>!s.king).sort(()=>Math.random()-.5).slice(0,cnt(col,'bomb')).forEach(s=>s.bomb=1)}
+  my().filter(s=>!s.king).sort(()=>Math.random()-.5).slice(0,cnt(col,'bomb')+3*cnt(col,'nuke')).forEach(s=>s.bomb=1)}
  for(const col of['black','white']){const op=other(col),ops=()=>G.stones.filter(s=>s.col===op);
   ops().sort(()=>Math.random()-.5).slice(0,2*cnt(col,'shrink')).forEach(s=>{s.r=Math.max(R*.5,s.r*.7);s.m=Math.max(.15,s.m*.6)});
+  ops().sort(()=>Math.random()-.5).slice(0,4*cnt(col,'blackhole')).forEach(s=>{s.r=Math.max(R*.45,s.r*.6);s.m=Math.max(.12,s.m*.4)});
   const kill=Math.min(2*cnt(col,'meteor'),Math.max(0,ops().length-2));if(kill){const v=ops().sort(()=>Math.random()-.5).slice(0,kill);G.stones=G.stones.filter(s=>!v.includes(s));G.meteorMsg=(G.meteorMsg||'')+`☄️ ${pname(col)}의 메테오! 상대 알 ${kill}개 파괴 `}}
  G.vamp={black:0,white:0};G.shooter=null;
  $('quitInf').style.display=G.ab&&G.ab.inf?'':'none';
@@ -373,19 +374,28 @@ const SK={
  storm:{t:3,ic:'🌪️',n:'태풍',d:'상대 알 전부<br>무게 -40% · 마찰 -40%'},
  meteor:{t:3,ic:'☄️',n:'메테오',d:'판 시작 시 상대 알<br>2개를 무작위로 파괴<br>(최소 2개는 남겨요)'},
  diamond:{t:3,ic:'💠',n:'금강불괴',d:'내 알 무게 2.5배<br>거의 안 밀려요'},
+ heavy:{t:1,ic:'🔨',n:'철퇴',d:'내가 쏜 알의 타격 +25%'},
+ sapper:{t:1,ic:'🐌',n:'둔화 저주',d:'상대 발사 세기 -10%'},
+ thick:{t:1,ic:'🥚',n:'두꺼운 껍질',d:'내 알 크기 +10%'},
+ twin:{t:2,ic:'👯',n:'분신술',d:'판 시작 시 내 알 +2'},
+ gravity:{t:2,ic:'🌀',n:'중력장',d:'상대 알 전부<br>크기 -15%'},
+ colossus:{t:3,ic:'🏔️',n:'거상',d:'내 모든 알<br>크기 +40% · 무게 2배'},
+ blackhole:{t:3,ic:'🕳️',n:'블랙홀',d:'판 시작 시 상대 알 4개<br>크기 -40% · 무게 -60%'},
+ nuke:{t:3,ic:'☢️',n:'핵폭탄',d:'판마다 내 알 3개가<br>폭탄이 돼요'},
  titan:{t:3,ic:'💫',n:'거신의 일격',d:'발사 세기 +60%<br>타격 +80%'}};
-const AIPRI=['meteor','militia','aegis','titan','diamond','king','legion','storm','iron','shield','vampire','bomb','grow','boomerang','turtle','giant','revive','power','shock','scope','reinforce','shrink','ballast','initiative','swift','ice','grip','curse','ghost'];
+const UNIQ=['shield','aegis'];
+const AIPRI=['nuke','blackhole','colossus','twin','gravity','heavy','thick','sapper','meteor','militia','aegis','titan','diamond','king','legion','storm','iron','shield','vampire','bomb','grow','boomerang','turtle','giant','revive','power','shock','scope','reinforce','shrink','ballast','initiative','swift','ice','grip','curse','ghost'];
 const ROUND_W={1:[60,35,5],2:[35,50,15],3:[20,50,30],4:[10,45,45],5:[0,40,60]};
 function rollTier(r){const w=ROUND_W[Math.min(r,5)],t=Math.random()*100;return t<w[0]?1:t<w[0]+w[1]?2:3}
 const other=c=>c==='black'?'white':'black';
 function cnt(col,id,ab=G.ab){return ab?ab.skills[col].filter(x=>x===id).length:0}
 function has(col,id,ab=G.ab){return cnt(col,id,ab)>0}
-const powMul=col=>Math.min(2.4,1.3**cnt(col,'power')*1.15**cnt(col,'swift')*1.6**cnt(col,'titan'));
+const powMul=col=>Math.min(2.4,1.3**cnt(col,'power')*1.15**cnt(col,'swift')*1.6**cnt(col,'titan')*.9**cnt(other(col),'sapper'));
 const icons=col=>G.ab?G.ab.skills[col].map(k=>SK[k].ic).join(''):'';
 function mk(col,x,y,small=false){let m=1,r=R;const op=other(col),c=k=>cnt(col,k),o=k=>cnt(op,k);if(small){r*=.6;m*=.35}
- r*=1.25**c('giant')*.85**c('turtle');m*=1.4**c('giant')*1.7**c('iron')*1.25**c('ballast')*2**c('turtle')*2.5**c('diamond')*.7**o('curse')*.6**o('storm');
+ r*=1.25**c('giant')*.85**c('turtle')*1.1**c('thick')*1.4**c('colossus')*.85**o('gravity');m*=1.4**c('giant')*1.7**c('iron')*1.25**c('ballast')*2**c('turtle')*2.5**c('diamond')*2**c('colossus')*.7**o('curse')*.6**o('storm');
  r=Math.max(R*.45,Math.min(R*2.2,r));m=Math.max(.12,Math.min(30,m));
- const dec=Math.max(DECEL*.3,Math.min(DECEL*4,DECEL*(1+c('grip'))*.7**o('ice')*.6**o('storm'))),kick=Math.min(3,1+.5*c('shock')+.8*c('titan'));
+ const dec=Math.max(DECEL*.3,Math.min(DECEL*4,DECEL*(1+c('grip'))*.7**o('ice')*.6**o('storm'))),kick=Math.min(3,1+.5*c('shock')+.8*c('titan')+.25*c('heavy'));
  return{col,x,y,vx:0,vy:0,alive:true,fall:0,r,m,dec,kick,ghost:has(col,'ghost'),shield:0,shot:false}}
 const pname=col=>G.mode==='ai'?(col===G.human?'나':'AI'):(col==='black'?'1P (흑)':'2P (백)');
 function startAbility(){const mode=optVal('optAbMode');
@@ -395,7 +405,7 @@ function beginPicks(q){G.pickQ=q;G.meteorMsg='';G.ab.tier=rollTier(G.ab.round);n
 function nextPick(){const A=G.ab;if(!G.pickQ.length){const ib=has('black','initiative'),iw=has('white','initiative');if(ib!==iw)A.first=ib?'black':'white';
   startGame(G.mode,A);flash(`⚡ ${A.round}라운드 시작! ${A.first==='black'?'⚫ 흑':'⚪ 백'} 선공`+(G.meteorMsg?' · '+G.meteorMsg:''));return}
  const col=G.pickQ.shift();showPick(col,offer(col),true)}
-function offer(col){const t=G.ab.tier,inf=G.ab.inf,ok=k=>inf||k==='reinforce'||k==='legion'||!G.ab.skills[col].includes(k);
+function offer(col){const t=G.ab.tier,inf=G.ab.inf,ok=k=>(inf&&!(UNIQ.includes(k)&&G.ab.skills[col].includes(k)))||k==='reinforce'||k==='legion'||!G.ab.skills[col].includes(k);
  let pool=Object.keys(SK).filter(k=>SK[k].t===t&&ok(k));
  if(pool.length<3)pool=pool.concat(Object.keys(SK).filter(k=>SK[k].t!==t&&ok(k)&&!pool.includes(k)).sort(()=>Math.random()-.5).slice(0,3-pool.length));return pool.sort(()=>Math.random()-.5).slice(0,3)}
 function showPick(col,opts,canReroll){const A=G.ab,ai=G.mode==='ai'&&col!==G.human;show('aug');
